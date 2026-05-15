@@ -20,6 +20,15 @@ Le deuxieme increment ajoute :
 - migration initiale avec donnees de demarrage
 - execution API + PostgreSQL via Docker Compose
 
+Le troisieme increment ajoute :
+
+- contexte ETA par token ou header `x-current-eta-id`
+- garde de roles ETA (`owner`, `admin`, `employee`, `material_manager`)
+- referentiels metiers : clients, salaries, materiels, articles, unites, tarifs
+- entites `time_entries`, `time_entry_materials`, `time_entry_quantities`, `time_entry_consumables`
+- creation transactionnelle d'une saisie complete
+- recherche, controle de chevauchement salarie, validation, stats semaines/mois
+
 ## Demarrage local
 
 Installer les dependances puis copier l'exemple d'environnement :
@@ -84,11 +93,28 @@ Endpoints :
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 
-## Prochain increment
+## API metier
 
-Le prochain pas logique est la partie fonctionnelle saisie des temps :
+Le backend expose maintenant les premieres routes metier protegees par JWT :
 
-- referentiels metiers ETA (clients, salaries, materiels, articles, tarifs)
-- entites `time_entries` (equivalent bon chantier)
-- endpoints CRUD + recherche
-- regles de chevauchement et validation
+- `GET /api/etas/current`
+- `GET|POST|PATCH /api/clients`
+- `GET|POST|PATCH /api/employees`
+- `GET|POST|PATCH /api/materials`
+- `GET|POST|PATCH /api/articles`
+- `GET|POST|PATCH /api/units`
+- `GET|POST|PATCH /api/tariffs`
+- `GET|POST|PATCH /api/tariffs/categories`
+- `POST /api/time-entries`
+- `POST /api/time-entries/search`
+- `GET /api/time-entries/overlaps`
+- `GET|PATCH|DELETE /api/time-entries/:id`
+- `POST /api/time-entries/validate`
+- `POST /api/time-entries/stats/weeks`
+- `POST /api/time-entries/stats/months`
+
+Pour selectionner une ETA differente de l'ETA active du token, envoyer :
+
+```http
+x-current-eta-id: <eta-id>
+```
