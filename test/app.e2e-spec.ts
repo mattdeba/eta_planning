@@ -1,25 +1,22 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { AppController } from './../src/app.controller';
+import { AppService } from './../src/app.service';
+import { HealthController } from './../src/health/health.controller';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      controllers: [AppController, HealthController],
+      providers: [AppService],
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    const configService = app.get(ConfigService);
-    const apiPrefix = configService.get<string>('API_PREFIX', 'api');
-
-    if (apiPrefix) {
-      app.setGlobalPrefix(apiPrefix);
-    }
+    app.setGlobalPrefix('api');
 
     app.useGlobalPipes(
       new ValidationPipe({

@@ -14,4 +14,13 @@ export const environmentValidationSchema = Joi.object({
   DATABASE_NAME: Joi.string().default('eta_planning'),
   DATABASE_SSL: Joi.boolean().truthy('true').falsy('false').default(false),
   TYPEORM_LOGGING: Joi.boolean().truthy('true').falsy('false').default(false),
+  JWT_ACCESS_SECRET: Joi.string()
+    .min(16)
+    .default('dev-access-secret-change-me'),
+  JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
+  JWT_REFRESH_SECRET: Joi.string()
+    .min(16)
+    .default('dev-refresh-secret-change-me'),
+  JWT_REFRESH_EXPIRES_IN: Joi.string().default('30d'),
+  BCRYPT_SALT_ROUNDS: Joi.number().integer().min(8).max(15).default(10),
 });

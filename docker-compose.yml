@@ -1,4 +1,32 @@
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: my_eta_planning_api
+    environment:
+      NODE_ENV: production
+      APP_NAME: my_eta_planning_backend
+      APP_PORT: 3000
+      API_PREFIX: api
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: eta
+      DATABASE_PASSWORD: eta
+      DATABASE_NAME: eta_planning
+      DATABASE_SSL: false
+      TYPEORM_LOGGING: false
+      JWT_ACCESS_SECRET: dev-access-secret-change-me
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: dev-refresh-secret-change-me
+      JWT_REFRESH_EXPIRES_IN: 30d
+      BCRYPT_SALT_ROUNDS: 10
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     container_name: my_eta_planning_postgres
