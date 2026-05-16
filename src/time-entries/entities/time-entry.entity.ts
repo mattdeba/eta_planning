@@ -1,3 +1,4 @@
+import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import {
   Column,
   CreateDateColumn,
@@ -23,39 +24,51 @@ import { TimeEntryQuantity } from './time-entry-quantity.entity';
 @Index('IDX_time_entries_etaId_startAt', ['etaId', 'startAt'])
 @Index('IDX_time_entries_etaId_employeeId', ['etaId', 'employeeId'])
 export class TimeEntry {
+  @ApiProperty({ format: 'uuid' })
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @ApiProperty({ format: 'uuid' })
   @Column({ type: 'uuid' })
   etaId: string;
 
+  @ApiProperty({ nullable: true, format: 'uuid' })
   @Column({ type: 'uuid', nullable: true })
   clientId: string | null;
 
+  @ApiProperty({ format: 'uuid' })
   @Column({ type: 'uuid' })
   employeeId: string;
 
+  @ApiProperty({ format: 'uuid' })
   @Column({ type: 'uuid' })
   articleId: string;
 
+  @ApiProperty({ format: 'uuid' })
   @Column({ type: 'uuid' })
   createdByUserId: string;
 
+  @ApiProperty({ format: 'date-time' })
   @Column({ type: 'timestamptz' })
   startAt: Date;
 
+  @ApiProperty({ format: 'date-time' })
   @Column({ type: 'timestamptz' })
   endAt: Date;
 
+  @ApiProperty({ example: 120 })
   @Column({ type: 'integer' })
   durationMinutes: number;
 
+  @ApiProperty({ example: 120 })
   @Column({ type: 'integer' })
   employeeMinutes: number;
 
+  @ApiProperty({ nullable: true, example: 'Travail de preparation.' })
   @Column({ type: 'text', nullable: true })
   comment: string | null;
 
+  @ApiProperty({ example: 12.5 })
   @Column({
     type: 'numeric',
     precision: 10,
@@ -65,6 +78,7 @@ export class TimeEntry {
   })
   personalKm: number;
 
+  @ApiProperty({ example: 8.5 })
   @Column({
     type: 'numeric',
     precision: 10,
@@ -74,51 +88,65 @@ export class TimeEntry {
   })
   personalAmount: number;
 
+  @ApiProperty({ example: false })
   @Column({ type: 'boolean', default: false })
   halfDay: boolean;
 
+  @ApiProperty({ nullable: true, format: 'date-time' })
   @Column({ type: 'timestamptz', nullable: true })
   validatedAt: Date | null;
 
+  @ApiProperty({ nullable: true, format: 'uuid' })
   @Column({ type: 'uuid', nullable: true })
   validatedByUserId: string | null;
 
+  @ApiProperty({ format: 'date-time' })
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
+  @ApiProperty({ format: 'date-time' })
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 
+  @ApiHideProperty()
   @ManyToOne(() => Eta, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'etaId' })
   eta: Eta;
 
+  @ApiProperty({ type: () => Client, nullable: true })
   @ManyToOne(() => Client, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'clientId' })
   client: Client | null;
 
+  @ApiProperty({ type: () => Employee })
   @ManyToOne(() => Employee, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'employeeId' })
   employee: Employee;
 
+  @ApiProperty({ type: () => Article })
   @ManyToOne(() => Article, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'articleId' })
   article: Article;
 
+  @ApiHideProperty()
   @ManyToOne(() => User, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'createdByUserId' })
   createdByUser: User;
 
+  @ApiHideProperty()
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'validatedByUserId' })
   validatedByUser: User | null;
 
+  @ApiProperty({ type: () => [TimeEntryMaterial] })
   @OneToMany(() => TimeEntryMaterial, (material) => material.timeEntry)
   materials: TimeEntryMaterial[];
 
+  @ApiProperty({ type: () => [TimeEntryQuantity] })
   @OneToMany(() => TimeEntryQuantity, (quantity) => quantity.timeEntry)
   quantities: TimeEntryQuantity[];
 
+  @ApiProperty({ type: () => [TimeEntryConsumable] })
   @OneToMany(() => TimeEntryConsumable, (consumable) => consumable.timeEntry)
   consumables: TimeEntryConsumable[];
 }

@@ -3,12 +3,13 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth,
+  ApiBody,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
@@ -21,13 +22,18 @@ import { EtaRole } from '../common/enums/eta-role.enum';
 import { EtaContextGuard } from '../common/guards/eta-context.guard';
 import { EtaRolesGuard } from '../common/guards/eta-roles.guard';
 import type { EtaContext } from '../common/interfaces/eta-context.interface';
+import {
+  ApiEtaContext,
+  ApiRouteErrors,
+  ApiUuidParam,
+} from '../common/swagger/api-route-decorators';
 import { CreateUnitDto } from './dto/create-unit.dto';
 import { UpdateUnitDto } from './dto/update-unit.dto';
 import { Unit } from './unit.entity';
 import { UnitsService } from './units.service';
 
 @ApiTags('units')
-@ApiBearerAuth()
+@ApiEtaContext()
 @UseGuards(JwtAuthGuard, EtaContextGuard, EtaRolesGuard)
 @Controller('units')
 export class UnitsController {
@@ -36,6 +42,7 @@ export class UnitsController {
   @Get()
   @ApiOperation({ summary: 'List units for current ETA.' })
   @ApiOkResponse({ type: [Unit] })
+  @ApiRouteErrors({ auth: true })
   findAll(@CurrentEta() currentEta: EtaContext): Promise<Unit[]> {
     return this.unitsService.findAll(currentEta.etaId);
   }
@@ -43,7 +50,9 @@ export class UnitsController {
   @Post()
   @EtaRoles(EtaRole.OWNER, EtaRole.ADMIN, EtaRole.MATERIAL_MANAGER)
   @ApiOperation({ summary: 'Create unit.' })
+  @ApiBody({ type: CreateUnitDto })
   @ApiCreatedResponse({ type: Unit })
+  @ApiRouteErrors({ auth: true })
   create(
     @CurrentEta() currentEta: EtaContext,
     @Body() dto: CreateUnitDto,
@@ -54,10 +63,13 @@ export class UnitsController {
   @Patch(':id')
   @EtaRoles(EtaRole.OWNER, EtaRole.ADMIN, EtaRole.MATERIAL_MANAGER)
   @ApiOperation({ summary: 'Update unit.' })
+  @ApiUuidParam()
+  @ApiBody({ type: UpdateUnitDto })
   @ApiOkResponse({ type: Unit })
+  @ApiRouteErrors({ auth: true, notFound: 'Unit not found.' })
   update(
     @CurrentEta() currentEta: EtaContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUnitDto,
   ): Promise<Unit> {
     return this.unitsService.update(currentEta.etaId, id, dto);

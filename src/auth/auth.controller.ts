@@ -9,14 +9,18 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiRouteErrors } from '../common/swagger/api-route-decorators';
 import type { Request } from 'express';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
+import { LogoutResponseDto } from './dto/logout-response.dto';
+import { MeResponseDto } from './dto/me-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { AuthUser } from './interfaces/auth-user.interface';
@@ -30,8 +34,16 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   @ApiOperation({ summary: 'Authenticate user and issue tokens.' })
+  @ApiBody({ type: LoginDto })
   @ApiOkResponse({ type: AuthResponseDto })
-  login(@Body() dto: LoginDto, @Req() request: Request) {
+  @ApiRouteErrors({
+    unauthorized: 'Credentials are invalid.',
+    forbidden: 'User has no active ETA membership.',
+  })
+  login(
+    @Body() dto: LoginDto,
+    @Req() request: Request,
+  ): Promise<AuthResponseDto> {
     return this.authService.login(
       dto,
       request.ip,
@@ -42,8 +54,16 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(200)
   @ApiOperation({ summary: 'Refresh tokens.' })
+  @ApiBody({ type: RefreshTokenDto })
   @ApiOkResponse({ type: AuthResponseDto })
-  refresh(@Body() dto: RefreshTokenDto, @Req() request: Request) {
+  @ApiRouteErrors({
+    unauthorized: 'Refresh token is invalid, revoked or expired.',
+    forbidden: 'User has no active ETA membership.',
+  })
+  refresh(
+    @Body() dto: RefreshTokenDto,
+    @Req() request: Request,
+  ): Promise<AuthResponseDto> {
     return this.authService.refresh(
       dto,
       request.ip,
@@ -56,11 +76,16 @@ export class AuthController {
   @HttpCode(200)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Revoke refresh token for current user.' })
-  @ApiOkResponse({ schema: { example: { success: true } } })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiOkResponse({ type: LogoutResponseDto })
+  @ApiRouteErrors({
+    auth: true,
+    forbidden: 'Refresh token does not belong to current user.',
+  })
   async logout(
     @CurrentUser() currentUser: AuthUser,
     @Body() dto: RefreshTokenDto,
-  ) {
+  ): Promise<LogoutResponseDto> {
     await this.authService.logout(currentUser, dto);
     return { success: true };
   }
@@ -69,8 +94,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile and ETA memberships.' })
-  @ApiOkResponse()
-  me(@CurrentUser() currentUser: AuthUser) {
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiRouteErrors({ auth: true })
+  me(@CurrentUser() currentUser: AuthUser): Promise<MeResponseDto> {
     return this.authService.me(currentUser);
   }
 }

@@ -29,6 +29,15 @@ Le troisieme increment ajoute :
 - creation transactionnelle d'une saisie complete
 - recherche, controle de chevauchement salarie, validation, stats semaines/mois
 
+Le quatrieme increment durcit l'API :
+
+- documentation Swagger complete des routes, DTOs, reponses et erreurs standard
+- schemas Swagger exposes pour les entites retournees par l'API
+- validation UUID sur les parametres `:id`
+- environnements separes pour test et production
+- seed idempotent des donnees de demonstration
+- tests e2e couvrant chaque route HTTP exposee
+
 ## Demarrage local
 
 Installer les dependances puis copier l'exemple d'environnement :
@@ -57,6 +66,12 @@ Executer les migrations :
 npm run migration:run
 ```
 
+Initialiser les donnees de demonstration :
+
+```bash
+npm run seed
+```
+
 ## Demarrage complet via Docker
 
 ```bash
@@ -68,6 +83,30 @@ API :
 - `http://localhost:3000/api`
 - Swagger : `http://localhost:3000/api/docs`
 
+## Environnements
+
+Les fichiers sont charges dans cet ordre :
+
+```text
+.env.<NODE_ENV>.local
+.env.<NODE_ENV>
+.env
+```
+
+Fichiers versionnes :
+
+- `.env.example` : base locale
+- `.env.test` : configuration de test, avec PostgreSQL sur `5434`
+- `.env.production.example` : modele production sans vrai secret
+
+En production, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` et les informations PostgreSQL doivent etre fournis explicitement. Les secrets de developpement sont refuses.
+
+Base PostgreSQL de test :
+
+```bash
+docker compose -f docker-compose.test.yml up -d postgres-test
+```
+
 ## Base de donnees
 
 Les scripts TypeORM utilisent `src/database/data-source.ts`.
@@ -77,6 +116,27 @@ npm run migration:create -- src/database/migrations/NomMigration
 npm run migration:generate -- src/database/migrations/NomMigration
 npm run migration:run
 npm run migration:revert
+npm run migration:show
+```
+
+## Seed
+
+Le seed est idempotent et peuple l'ETA de demonstration, deux utilisateurs, des referentiels metiers et des tarifs standards.
+
+```bash
+npm run seed
+npm run seed:test
+NODE_ENV=production SEED_ADMIN_PASSWORD='...' npm run seed
+```
+
+En production, `SEED_ADMIN_PASSWORD` doit etre defini et different du mot de passe de demonstration.
+
+## Tests
+
+```bash
+npm test
+npm run test:e2e
+npm run lint
 ```
 
 ## Auth (dev)

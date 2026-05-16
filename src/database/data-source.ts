@@ -5,10 +5,11 @@ import { buildDataSourceOptions } from './typeorm.options';
 
 const nodeEnv = process.env.NODE_ENV ?? 'development';
 
+loadEnv({ path: `.env.${nodeEnv}.local` });
 loadEnv({ path: `.env.${nodeEnv}` });
 loadEnv();
 
-const defaults: Record<string, string> = {
+const developmentDefaults: Record<string, string> = {
   DATABASE_HOST: 'localhost',
   DATABASE_PORT: '5433',
   DATABASE_USER: 'eta',
@@ -17,6 +18,19 @@ const defaults: Record<string, string> = {
   DATABASE_SSL: 'false',
   TYPEORM_LOGGING: 'false',
 };
+
+const testDefaults: Record<string, string> = {
+  ...developmentDefaults,
+  DATABASE_PORT: '5434',
+  DATABASE_NAME: 'eta_planning_test',
+};
+
+const defaults: Record<string, string> =
+  nodeEnv === 'production'
+    ? {}
+    : nodeEnv === 'test'
+      ? testDefaults
+      : developmentDefaults;
 
 const envConfig = {
   get<T = unknown>(key: string, defaultValue?: T): T | undefined {

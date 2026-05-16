@@ -1,3 +1,4 @@
+import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import {
   Column,
   CreateDateColumn,
@@ -16,18 +17,23 @@ import { ArticleType } from './enums/article-type.enum';
 @Index('IDX_articles_etaId', ['etaId'])
 @Unique('UQ_articles_etaId_code', ['etaId', 'code'])
 export class Article {
+  @ApiProperty({ format: 'uuid' })
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @ApiProperty({ format: 'uuid' })
   @Column({ type: 'uuid' })
   etaId: string;
 
+  @ApiProperty({ maxLength: 64, example: 'MO' })
   @Column({ type: 'varchar', length: 64 })
   code: string;
 
+  @ApiProperty({ maxLength: 255, example: 'Main oeuvre' })
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
+  @ApiProperty({ enum: ArticleType })
   @Column({
     type: 'enum',
     enum: ArticleType,
@@ -35,15 +41,19 @@ export class Article {
   })
   type: ArticleType;
 
+  @ApiProperty({ example: true })
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  @ApiProperty({ format: 'date-time' })
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
+  @ApiProperty({ format: 'date-time' })
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 
+  @ApiHideProperty()
   @ManyToOne(() => Eta, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'etaId' })
   eta: Eta;

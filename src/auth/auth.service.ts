@@ -19,6 +19,7 @@ import { AccessTokenPayload } from './interfaces/access-token-payload.interface'
 import { AuthUser } from './interfaces/auth-user.interface';
 import { RefreshTokenPayload } from './interfaces/refresh-token-payload.interface';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { MeResponseDto } from './dto/me-response.dto';
 import { EtaUser } from '../eta-users/eta-user.entity';
 
 @Injectable()
@@ -130,7 +131,7 @@ export class AuthService {
     );
   }
 
-  async me(currentUser: AuthUser) {
+  async me(currentUser: AuthUser): Promise<MeResponseDto> {
     const user = await this.usersService.findById(currentUser.userId);
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found.');
@@ -148,7 +149,7 @@ export class AuthService {
       activeEtaId: currentUser.activeEtaId,
       memberships: memberships.map((membership) => ({
         etaId: membership.etaId,
-        etaName: membership.eta?.name,
+        etaName: membership.eta?.name ?? null,
         role: membership.role,
       })),
     };

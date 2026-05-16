@@ -15,10 +15,12 @@ import { TariffsModule } from './tariffs/tariffs.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { UnitsModule } from './units/units.module';
 
+const nodeEnv = process.env.NODE_ENV ?? 'development';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
-      envFilePath: [`.env.${process.env.NODE_ENV ?? 'development'}`, '.env'],
+      envFilePath: [`.env.${nodeEnv}.local`, `.env.${nodeEnv}`, '.env'],
       isGlobal: true,
       validationSchema: environmentValidationSchema,
     }),
