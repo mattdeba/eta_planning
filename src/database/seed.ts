@@ -183,7 +183,8 @@ async function runSeed(): Promise<void> {
     },
   ]);
 
-  await dataSource.getRepository(Unit).save([
+  const unitRepository = dataSource.getRepository(Unit);
+  const seedUnits = [
     {
       id: ids.unitHour,
       etaId: ids.eta,
@@ -205,7 +206,37 @@ async function runSeed(): Promise<void> {
       label: 'Litre',
       isActive: true,
     },
-  ]);
+  ];
+
+  await unitRepository
+    .createQueryBuilder()
+    .insert()
+    .into(Unit)
+    .values(seedUnits)
+    .orUpdate(['label', 'isActive'], ['etaId', 'code'])
+    .execute();
+
+  const persistedUnits = await unitRepository
+    .createQueryBuilder('unit')
+    .where('unit.etaId = :etaId', { etaId: ids.eta })
+    .andWhere('unit.code IN (:...codes)', {
+      codes: seedUnits.map((unit) => unit.code),
+    })
+    .getMany();
+
+  const unitIdsByCode = new Map(
+    persistedUnits.map((unit) => [unit.code, unit.id]),
+  );
+
+  const getUnitId = (code: string): string => {
+    const unitId = unitIdsByCode.get(code);
+
+    if (!unitId) {
+      throw new Error(`Seed unit ${code} was not found after upsert.`);
+    }
+
+    return unitId;
+  };
 
   await dataSource.getRepository(TariffCategory).save({
     id: ids.tariffCategory,
@@ -219,7 +250,7 @@ async function runSeed(): Promise<void> {
       id: ids.laborTariff,
       etaId: ids.eta,
       articleId: ids.articleLabor,
-      unitId: ids.unitHour,
+      unitId: getUnitId('H'),
       categoryId: ids.tariffCategory,
       label: 'Main oeuvre horaire',
       unitPrice: 65,
@@ -231,7 +262,7 @@ async function runSeed(): Promise<void> {
       id: ids.travelTariff,
       etaId: ids.eta,
       articleId: ids.articleTravel,
-      unitId: ids.unitKm,
+      unitId: getUnitId('KM'),
       categoryId: ids.tariffCategory,
       label: 'Deplacement kilometrique',
       unitPrice: 0.95,
@@ -243,7 +274,7 @@ async function runSeed(): Promise<void> {
       id: ids.fuelTariff,
       etaId: ids.eta,
       articleId: ids.articleFuel,
-      unitId: ids.unitLiter,
+      unitId: getUnitId('L'),
       categoryId: ids.tariffCategory,
       label: 'Carburant GNR',
       unitPrice: 1.35,
