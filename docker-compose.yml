@@ -16,9 +16,9 @@ services:
       DATABASE_NAME: eta_planning
       DATABASE_SSL: false
       TYPEORM_LOGGING: false
-      JWT_ACCESS_SECRET: dev-access-secret-change-me
+      JWT_ACCESS_SECRET: local-docker-access-secret-change-me-32chars
       JWT_ACCESS_EXPIRES_IN: 15m
-      JWT_REFRESH_SECRET: dev-refresh-secret-change-me
+      JWT_REFRESH_SECRET: local-docker-refresh-secret-change-me-32chars
       JWT_REFRESH_EXPIRES_IN: 30d
       BCRYPT_SALT_ROUNDS: 10
     ports:
