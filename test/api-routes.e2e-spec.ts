@@ -24,6 +24,8 @@ import { EtaRolesGuard } from '../src/common/guards/eta-roles.guard';
 import type { EtaContext } from '../src/common/interfaces/eta-context.interface';
 import { EmployeesController } from '../src/employees/employees.controller';
 import { EmployeesService } from '../src/employees/employees.service';
+import { EtaUsersController } from '../src/eta-users/eta-users.controller';
+import { EtaUsersService } from '../src/eta-users/eta-users.service';
 import { EtasController } from '../src/etas/etas.controller';
 import { EtasService } from '../src/etas/etas.service';
 import { HealthController } from '../src/health/health.controller';
@@ -104,6 +106,12 @@ const employeesService = {
   update: jest.fn(),
 };
 
+const etaUsersService = {
+  findAllForEta: jest.fn(),
+  createEmployeeAccount: jest.fn(),
+  updateAccount: jest.fn(),
+};
+
 const materialsService = {
   findAll: jest.fn(),
   create: jest.fn(),
@@ -160,9 +168,22 @@ const sampleClient = {
 const sampleEmployee = {
   id: EMPLOYEE_ID,
   etaId: ETA_ID,
+  userId: null,
   firstName: 'Jean',
   lastName: 'Dupont',
   isActive: true,
+};
+
+const sampleEtaUser = {
+  id: RESOURCE_ID,
+  etaId: ETA_ID,
+  userId: USER_ID,
+  email: 'employee@eta.local',
+  firstName: 'Jean',
+  lastName: 'Dupont',
+  role: EtaRole.EMPLOYEE,
+  isActive: true,
+  employee: sampleEmployee,
 };
 
 const sampleMaterial = {
@@ -241,6 +262,7 @@ describe('API routes (e2e)', () => {
         EtasController,
         ClientsController,
         EmployeesController,
+        EtaUsersController,
         MaterialsController,
         ArticlesController,
         UnitsController,
@@ -253,6 +275,7 @@ describe('API routes (e2e)', () => {
         { provide: EtasService, useValue: etasService },
         { provide: ClientsService, useValue: clientsService },
         { provide: EmployeesService, useValue: employeesService },
+        { provide: EtaUsersService, useValue: etaUsersService },
         { provide: MaterialsService, useValue: materialsService },
         { provide: ArticlesService, useValue: articlesService },
         { provide: UnitsService, useValue: unitsService },
@@ -305,6 +328,9 @@ describe('API routes (e2e)', () => {
     employeesService.findAll.mockResolvedValue([sampleEmployee]);
     employeesService.create.mockResolvedValue(sampleEmployee);
     employeesService.update.mockResolvedValue(sampleEmployee);
+    etaUsersService.findAllForEta.mockResolvedValue([sampleEtaUser]);
+    etaUsersService.createEmployeeAccount.mockResolvedValue(sampleEtaUser);
+    etaUsersService.updateAccount.mockResolvedValue(sampleEtaUser);
     materialsService.findAll.mockResolvedValue([sampleMaterial]);
     materialsService.create.mockResolvedValue(sampleMaterial);
     materialsService.update.mockResolvedValue(sampleMaterial);
@@ -476,11 +502,15 @@ describe('API routes (e2e)', () => {
       createBody: { code: 'H', label: 'Heure' },
       updateBody: { label: 'Heure machine' },
     },
-  ])('$name routes', ({ path, service, createBody, updateBody }) => {
+  ])('$name routes', ({ name, path, service, createBody, updateBody }) => {
     it(`GET ${path}`, async () => {
       await request(app.getHttpServer()).get(path).expect(200);
 
-      expect(service.findAll).toHaveBeenCalledWith(ETA_ID);
+      if (name === 'employees') {
+        expect(service.findAll).toHaveBeenCalledWith(currentEta, currentUser);
+      } else {
+        expect(service.findAll).toHaveBeenCalledWith(ETA_ID);
+      }
     });
 
     it(`POST ${path}`, async () => {
@@ -511,6 +541,51 @@ describe('API routes (e2e)', () => {
       .post('/api/clients')
       .send({ unknown: 'field' })
       .expect(400);
+  });
+
+  it('GET /api/eta-users', async () => {
+    await request(app.getHttpServer()).get('/api/eta-users').expect(200);
+
+    expect(etaUsersService.findAllForEta).toHaveBeenCalledWith(ETA_ID);
+  });
+
+  it('POST /api/eta-users', async () => {
+    const body = {
+      email: 'employee@eta.local',
+      password: 'ChangeMe123!',
+      firstName: 'Jean',
+      lastName: 'Dupont',
+      employeeId: EMPLOYEE_ID,
+    };
+
+    await request(app.getHttpServer())
+      .post('/api/eta-users')
+      .send(body)
+      .expect(201);
+
+    expect(etaUsersService.createEmployeeAccount).toHaveBeenCalledWith(
+      ETA_ID,
+      body,
+    );
+  });
+
+  it('PATCH /api/eta-users/:id', async () => {
+    const body = {
+      role: EtaRole.ADMIN,
+      isActive: true,
+      employeeId: EMPLOYEE_ID,
+    };
+
+    await request(app.getHttpServer())
+      .patch(`/api/eta-users/${RESOURCE_ID}`)
+      .send(body)
+      .expect(200);
+
+    expect(etaUsersService.updateAccount).toHaveBeenCalledWith(
+      ETA_ID,
+      RESOURCE_ID,
+      body,
+    );
   });
 
   it('GET /api/tariffs', async () => {

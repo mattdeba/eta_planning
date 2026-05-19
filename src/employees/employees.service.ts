@@ -1,6 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { EtaRole } from '../common/enums/eta-role.enum';
+import type { EtaContext } from '../common/interfaces/eta-context.interface';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { Employee } from './employee.entity';
@@ -12,9 +15,24 @@ export class EmployeesService {
     private readonly employeesRepository: Repository<Employee>,
   ) {}
 
-  findAll(etaId: string): Promise<Employee[]> {
+  findAll(currentEta: EtaContext, currentUser: AuthUser): Promise<Employee[]> {
+    if (currentEta.role === EtaRole.EMPLOYEE) {
+      return this.employeesRepository.find({
+        where: {
+          etaId: currentEta.etaId,
+          userId: currentUser.userId,
+          isActive: true,
+        },
+        order: { lastName: 'ASC', firstName: 'ASC' },
+      });
+    }
+
+    if (!this.canListAll(currentEta.role)) {
+      throw new ForbiddenException('Cannot list employees.');
+    }
+
     return this.employeesRepository.find({
-      where: { etaId },
+      where: { etaId: currentEta.etaId },
       order: { lastName: 'ASC', firstName: 'ASC' },
     });
   }
@@ -60,5 +78,11 @@ export class EmployeesService {
     const employee = await this.findOne(etaId, id);
     Object.assign(employee, dto);
     return this.employeesRepository.save(employee);
+  }
+
+  private canListAll(role: EtaRole): boolean {
+    return [EtaRole.OWNER, EtaRole.ADMIN, EtaRole.MATERIAL_MANAGER].includes(
+      role,
+    );
   }
 }

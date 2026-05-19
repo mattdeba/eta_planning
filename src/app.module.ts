@@ -8,6 +8,7 @@ import { ClientsModule } from './clients/clients.module';
 import { environmentValidationSchema } from './config/environment.validation';
 import { DatabaseModule } from './database/database.module';
 import { EmployeesModule } from './employees/employees.module';
+import { EtaUsersModule } from './eta-users/eta-users.module';
 import { EtasModule } from './etas/etas.module';
 import { HealthModule } from './health/health.module';
 import { MaterialsModule } from './materials/materials.module';
@@ -26,6 +27,7 @@ const nodeEnv = process.env.NODE_ENV ?? 'development';
     }),
     DatabaseModule,
     AuthModule,
+    EtaUsersModule,
     EtasModule,
     ClientsModule,
     EmployeesModule,

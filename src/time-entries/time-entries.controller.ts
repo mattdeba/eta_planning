@@ -144,12 +144,7 @@ export class TimeEntriesController {
 
   @Post('stats/weeks')
   @HttpCode(200)
-  @EtaRoles(
-    EtaRole.OWNER,
-    EtaRole.ADMIN,
-    EtaRole.EMPLOYEE,
-    EtaRole.MATERIAL_MANAGER,
-  )
+  @EtaRoles(EtaRole.OWNER, EtaRole.ADMIN)
   @ApiOperation({ summary: 'Aggregate employee time by ISO week.' })
   @ApiBody({ type: TimeEntryStatsDto })
   @ApiOkResponse({ type: [TimeEntryWeekStatsResponseDto] })
@@ -164,12 +159,7 @@ export class TimeEntriesController {
 
   @Post('stats/months')
   @HttpCode(200)
-  @EtaRoles(
-    EtaRole.OWNER,
-    EtaRole.ADMIN,
-    EtaRole.EMPLOYEE,
-    EtaRole.MATERIAL_MANAGER,
-  )
+  @EtaRoles(EtaRole.OWNER, EtaRole.ADMIN)
   @ApiOperation({ summary: 'Aggregate employee time and expenses by month.' })
   @ApiBody({ type: TimeEntryStatsDto })
   @ApiOkResponse({ type: [TimeEntryMonthStatsResponseDto] })

@@ -14,9 +14,16 @@ function createExecutionContext(
 }
 
 describe('EtaContextGuard', () => {
-  const guard = new EtaContextGuard();
+  const etaUsersRepository = {
+    findOne: jest.fn(),
+  };
+  const guard = new EtaContextGuard(etaUsersRepository as any);
 
-  it('uses x-current-eta-id when it matches a membership', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('uses x-current-eta-id when it matches an active membership', async () => {
     const request: RequestWithEtaContext = {
       headers: { 'x-current-eta-id': 'eta-2' },
       user: {
@@ -29,15 +36,21 @@ describe('EtaContextGuard', () => {
         ],
       },
     };
+    etaUsersRepository.findOne.mockResolvedValue({
+      etaId: 'eta-2',
+      role: EtaRole.ADMIN,
+    });
 
-    expect(guard.canActivate(createExecutionContext(request))).toBe(true);
+    await expect(guard.canActivate(createExecutionContext(request))).resolves.toBe(
+      true,
+    );
     expect(request.currentEta).toEqual({
       etaId: 'eta-2',
       role: EtaRole.ADMIN,
     });
   });
 
-  it('falls back to active ETA when no header is provided', () => {
+  it('falls back to active ETA when no header is provided', async () => {
     const request: RequestWithEtaContext = {
       headers: {},
       user: {
@@ -47,15 +60,21 @@ describe('EtaContextGuard', () => {
         memberships: [{ etaId: 'eta-1', role: EtaRole.EMPLOYEE }],
       },
     };
+    etaUsersRepository.findOne.mockResolvedValue({
+      etaId: 'eta-1',
+      role: EtaRole.EMPLOYEE,
+    });
 
-    expect(guard.canActivate(createExecutionContext(request))).toBe(true);
+    await expect(guard.canActivate(createExecutionContext(request))).resolves.toBe(
+      true,
+    );
     expect(request.currentEta).toEqual({
       etaId: 'eta-1',
       role: EtaRole.EMPLOYEE,
     });
   });
 
-  it('rejects a requested ETA outside user memberships', () => {
+  it('rejects a requested ETA outside active memberships', async () => {
     const request: RequestWithEtaContext = {
       headers: { 'x-current-eta-id': 'eta-2' },
       user: {
@@ -65,8 +84,9 @@ describe('EtaContextGuard', () => {
         memberships: [{ etaId: 'eta-1', role: EtaRole.EMPLOYEE }],
       },
     };
+    etaUsersRepository.findOne.mockResolvedValue(null);
 
-    expect(() => guard.canActivate(createExecutionContext(request))).toThrow(
+    await expect(guard.canActivate(createExecutionContext(request))).rejects.toThrow(
       ForbiddenException,
     );
   });

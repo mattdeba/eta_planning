@@ -15,7 +15,9 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CurrentEta } from '../common/decorators/current-eta.decorator';
 import { EtaRoles } from '../common/decorators/eta-roles.decorator';
 import { EtaRole } from '../common/enums/eta-role.enum';
@@ -43,8 +45,11 @@ export class EmployeesController {
   @ApiOperation({ summary: 'List employees for current ETA.' })
   @ApiOkResponse({ type: [Employee] })
   @ApiRouteErrors({ auth: true })
-  findAll(@CurrentEta() currentEta: EtaContext): Promise<Employee[]> {
-    return this.employeesService.findAll(currentEta.etaId);
+  findAll(
+    @CurrentEta() currentEta: EtaContext,
+    @CurrentUser() currentUser: AuthUser,
+  ): Promise<Employee[]> {
+    return this.employeesService.findAll(currentEta, currentUser);
   }
 
   @Post()
