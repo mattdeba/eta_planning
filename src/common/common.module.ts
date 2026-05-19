@@ -7,6 +7,6 @@ import { EtaRolesGuard } from './guards/eta-roles.guard';
 @Module({
   imports: [TypeOrmModule.forFeature([EtaUser])],
   providers: [EtaContextGuard, EtaRolesGuard],
-  exports: [EtaContextGuard, EtaRolesGuard],
+  exports: [TypeOrmModule, EtaContextGuard, EtaRolesGuard],
 })
 export class CommonModule {}
