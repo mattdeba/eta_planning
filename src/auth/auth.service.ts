@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   UnauthorizedException,
@@ -8,12 +9,13 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
-import { Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { EtaUsersService } from '../eta-users/eta-users.service';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterDto } from './dto/register.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { AccessTokenPayload } from './interfaces/access-token-payload.interface';
 import { AuthUser } from './interfaces/auth-user.interface';
@@ -21,6 +23,8 @@ import { RefreshTokenPayload } from './interfaces/refresh-token-payload.interfac
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { EtaUser } from '../eta-users/eta-user.entity';
+import { Eta } from '../etas/eta.entity';
+import { EtaRole } from '../common/enums/eta-role.enum';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +33,7 @@ export class AuthService {
     private readonly etaUsersService: EtaUsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly dataSource: DataSource,
     @InjectRepository(RefreshToken)
     private readonly refreshTokensRepository: Repository<RefreshToken>,
   ) {}
@@ -59,6 +64,78 @@ export class AuthService {
     }
 
     return this.issueTokens(user, memberships, ipAddress, userAgent);
+  }
+
+  async register(
+    dto: RegisterDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AuthResponseDto> {
+    const email = dto.email.trim().toLowerCase();
+    const etaName = dto.etaName.trim();
+    const passwordHash = await bcrypt.hash(
+      dto.password,
+      Number(this.configService.get<number>('BCRYPT_SALT_ROUNDS', 10)),
+    );
+
+    try {
+      const { user, membership } = await this.dataSource.transaction(
+        async (manager) => {
+          const usersRepository = manager.getRepository(User);
+          const etasRepository = manager.getRepository(Eta);
+          const etaUsersRepository = manager.getRepository(EtaUser);
+
+          const existingUser = await usersRepository.findOne({
+            where: { email },
+          });
+          if (existingUser) {
+            throw new ConflictException(
+              'An account already exists for this email.',
+            );
+          }
+
+          const eta = await etasRepository.save(
+            etasRepository.create({
+              name: etaName,
+              slug: await this.buildUniqueEtaSlug(etaName, etasRepository),
+              isActive: true,
+            }),
+          );
+
+          const user = await usersRepository.save(
+            usersRepository.create({
+              email,
+              passwordHash,
+              firstName: null,
+              lastName: null,
+              isActive: true,
+            }),
+          );
+
+          const membership = await etaUsersRepository.save(
+            etaUsersRepository.create({
+              etaId: eta.id,
+              userId: user.id,
+              role: EtaRole.ADMIN,
+              isActive: true,
+            }),
+          );
+          membership.eta = eta;
+
+          return { user, membership };
+        },
+      );
+
+      return this.issueTokens(user, [membership], ipAddress, userAgent);
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException(
+          'An account already exists for this email.',
+        );
+      }
+
+      throw error;
+    }
   }
 
   async refresh(
@@ -272,5 +349,45 @@ export class AuthService {
     };
 
     return amount * factorMap[unit];
+  }
+
+  private async buildUniqueEtaSlug(
+    etaName: string,
+    etasRepository: Repository<Eta>,
+  ): Promise<string> {
+    const baseSlug = this.slugify(etaName) || 'eta';
+    let slug = baseSlug;
+    let suffix = 2;
+
+    while (await etasRepository.exists({ where: { slug } })) {
+      const suffixPart = String(suffix);
+      const maxBaseLength = 255 - suffixPart.length - 1;
+      const truncatedBaseSlug =
+        baseSlug.slice(0, maxBaseLength).replace(/-+$/g, '') || 'eta';
+      slug = `${truncatedBaseSlug}-${suffixPart}`;
+      suffix += 1;
+    }
+
+    return slug;
+  }
+
+  private slugify(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 255);
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof QueryFailedError &&
+      typeof error.driverError === 'object' &&
+      error.driverError !== null &&
+      'code' in error.driverError &&
+      error.driverError.code === '23505'
+    );
   }
 }

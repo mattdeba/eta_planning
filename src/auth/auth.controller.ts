@@ -10,6 +10,7 @@ import {
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -22,6 +23,7 @@ import { LoginDto } from './dto/login.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { AuthUser } from './interfaces/auth-user.interface';
 import { AuthService } from './auth.service';
@@ -45,6 +47,24 @@ export class AuthController {
     @Req() request: Request,
   ): Promise<AuthResponseDto> {
     return this.authService.login(
+      dto,
+      request.ip,
+      request.headers['user-agent'],
+    );
+  }
+
+  @Post('register')
+  @ApiOperation({ summary: 'Register a new ETA and its first admin user.' })
+  @ApiBody({ type: RegisterDto })
+  @ApiCreatedResponse({ type: AuthResponseDto })
+  @ApiRouteErrors({
+    conflict: 'An account already exists for this email.',
+  })
+  register(
+    @Body() dto: RegisterDto,
+    @Req() request: Request,
+  ): Promise<AuthResponseDto> {
+    return this.authService.register(
       dto,
       request.ip,
       request.headers['user-agent'],

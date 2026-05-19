@@ -82,6 +82,7 @@ const etaRolesGuard: CanActivate = {
 
 const authService = {
   login: jest.fn(),
+  register: jest.fn(),
   refresh: jest.fn(),
   logout: jest.fn(),
   me: jest.fn(),
@@ -283,6 +284,7 @@ describe('API routes (e2e)', () => {
     jest.clearAllMocks();
 
     authService.login.mockResolvedValue(authResponse);
+    authService.register.mockResolvedValue(authResponse);
     authService.refresh.mockResolvedValue(authResponse);
     authService.logout.mockResolvedValue(undefined);
     authService.me.mockResolvedValue({
@@ -365,6 +367,29 @@ describe('API routes (e2e)', () => {
       });
 
     expect(authService.login).toHaveBeenCalledWith(
+      body,
+      expect.any(String),
+      'jest',
+    );
+  });
+
+  it('POST /api/auth/register', async () => {
+    const body = {
+      email: 'new-admin@eta.local',
+      password: 'ChangeMe123!',
+      etaName: 'Nouvelle ETA',
+    };
+
+    await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .set('user-agent', 'jest')
+      .send(body)
+      .expect(201)
+      .expect(({ body: response }) => {
+        expect(response).toMatchObject(authResponse);
+      });
+
+    expect(authService.register).toHaveBeenCalledWith(
       body,
       expect.any(String),
       'jest',
