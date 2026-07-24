@@ -21,7 +21,7 @@ import { TimeEntryMaterial } from './time-entry-material.entity';
 import { TimeEntryQuantity } from './time-entry-quantity.entity';
 
 @Entity({ name: 'time_entries' })
-@Index('IDX_time_entries_etaId_startAt', ['etaId', 'startAt'])
+@Index('IDX_time_entries_etaId_date', ['etaId', 'date'])
 @Index('IDX_time_entries_etaId_employeeId', ['etaId', 'employeeId'])
 export class TimeEntry {
   @ApiProperty({ format: 'uuid' })
@@ -48,21 +48,17 @@ export class TimeEntry {
   @Column({ type: 'uuid' })
   createdByUserId: string;
 
-  @ApiProperty({ format: 'date-time' })
-  @Column({ type: 'timestamptz' })
-  startAt: Date;
+  @ApiProperty({ format: 'date', example: '2026-05-16' })
+  @Column({ type: 'date' })
+  date: string;
 
-  @ApiProperty({ format: 'date-time' })
-  @Column({ type: 'timestamptz' })
-  endAt: Date;
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  @Column({ type: 'timestamptz', nullable: true })
+  startAt: Date | null;
 
-  @ApiProperty({ example: 120 })
-  @Column({ type: 'integer' })
-  durationMinutes: number;
-
-  @ApiProperty({ example: 120 })
-  @Column({ type: 'integer' })
-  employeeMinutes: number;
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  @Column({ type: 'timestamptz', nullable: true })
+  endAt: Date | null;
 
   @ApiProperty({ nullable: true, example: 'Travail de preparation.' })
   @Column({ type: 'text', nullable: true })

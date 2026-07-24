@@ -4,7 +4,6 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
-  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -32,7 +31,12 @@ export class CreateTimeEntryMaterialDto {
 export class CreateTimeEntryQuantityDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
-  tariffId: string;
+  unitId: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  tariffId?: string;
 
   @ApiProperty({ minimum: 0 })
   @IsNumber()
@@ -85,25 +89,19 @@ export class CreateTimeEntryDto {
   @IsUUID()
   articleId: string;
 
-  @ApiProperty({ format: 'date-time' })
+  @ApiProperty({ format: 'date', example: '2026-05-16' })
   @IsDateString()
-  startAt: string;
+  date: string;
 
-  @ApiProperty({ format: 'date-time' })
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
   @IsDateString()
-  endAt: string;
+  startAt?: string;
 
-  @ApiPropertyOptional({ minimum: 1 })
+  @ApiPropertyOptional({ format: 'date-time' })
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  durationMinutes?: number;
-
-  @ApiPropertyOptional({ minimum: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  employeeMinutes?: number;
+  @IsDateString()
+  endAt?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

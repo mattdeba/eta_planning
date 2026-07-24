@@ -190,6 +190,7 @@ async function runSeed(): Promise<void> {
       etaId: ids.eta,
       code: 'H',
       label: 'Heure',
+      isHourUnit: true,
       isActive: true,
     },
     {
@@ -197,6 +198,7 @@ async function runSeed(): Promise<void> {
       etaId: ids.eta,
       code: 'KM',
       label: 'Kilometre',
+      isHourUnit: false,
       isActive: true,
     },
     {
@@ -204,6 +206,7 @@ async function runSeed(): Promise<void> {
       etaId: ids.eta,
       code: 'L',
       label: 'Litre',
+      isHourUnit: false,
       isActive: true,
     },
   ];
@@ -213,7 +216,7 @@ async function runSeed(): Promise<void> {
     .insert()
     .into(Unit)
     .values(seedUnits)
-    .orUpdate(['label', 'isActive'], ['etaId', 'code'])
+    .orUpdate(['label', 'isHourUnit', 'isActive'], ['etaId', 'code'])
     .execute();
 
   const persistedUnits = await unitRepository
@@ -283,6 +286,22 @@ async function runSeed(): Promise<void> {
       isActive: true,
     },
   ]);
+
+  const articleUnitLinks: [string, string][] = [
+    [ids.articleLabor, 'H'],
+    [ids.articleTravel, 'KM'],
+    [ids.articleMaintenance, 'H'],
+    [ids.articleFuel, 'L'],
+  ];
+
+  for (const [articleId, unitCode] of articleUnitLinks) {
+    await dataSource.query(
+      `INSERT INTO "article_units" ("articleId", "unitId")
+       VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [articleId, getUnitId(unitCode)],
+    );
+  }
 
   console.log(`Seed completed for ${adminEmail} on ETA ${ids.eta}.`);
 }

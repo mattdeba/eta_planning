@@ -32,6 +32,10 @@ export class Unit {
   @Column({ type: 'varchar', length: 128 })
   label: string;
 
+  @ApiProperty({ example: false })
+  @Column({ type: 'boolean', default: false })
+  isHourUnit: boolean;
+
   @ApiProperty({ example: true })
   @Column({ type: 'boolean', default: true })
   isActive: boolean;

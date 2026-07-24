@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { numericTransformer } from '../../common/transformers/numeric.transformer';
 import { Tariff } from '../../tariffs/tariff.entity';
+import { Unit } from '../../units/unit.entity';
 import { TimeEntry } from './time-entry.entity';
 
 @Entity({ name: 'time_entry_quantities' })
@@ -24,7 +25,11 @@ export class TimeEntryQuantity {
 
   @ApiProperty({ format: 'uuid' })
   @Column({ type: 'uuid' })
-  tariffId: string;
+  unitId: string;
+
+  @ApiProperty({ nullable: true, format: 'uuid' })
+  @Column({ type: 'uuid', nullable: true })
+  tariffId: string | null;
 
   @ApiProperty({ example: 3.5 })
   @Column({
@@ -42,8 +47,17 @@ export class TimeEntryQuantity {
   @JoinColumn({ name: 'timeEntryId' })
   timeEntry: TimeEntry;
 
-  @ApiProperty({ type: () => Tariff })
-  @ManyToOne(() => Tariff, { eager: true, onDelete: 'RESTRICT' })
+  @ApiProperty({ type: () => Unit })
+  @ManyToOne(() => Unit, { eager: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'unitId' })
+  unit: Unit;
+
+  @ApiProperty({ type: () => Tariff, nullable: true })
+  @ManyToOne(() => Tariff, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'tariffId' })
-  tariff: Tariff;
+  tariff: Tariff | null;
 }

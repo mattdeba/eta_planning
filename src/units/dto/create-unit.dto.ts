@@ -12,6 +12,11 @@ export class CreateUnitDto {
   @MaxLength(128)
   label: string;
 
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  isHourUnit?: boolean;
+
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()

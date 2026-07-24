@@ -5,12 +5,15 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { Eta } from '../etas/eta.entity';
+import { Unit } from '../units/unit.entity';
 import { ArticleType } from './enums/article-type.enum';
 
 @Entity({ name: 'articles' })
@@ -57,4 +60,13 @@ export class Article {
   @ManyToOne(() => Eta, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'etaId' })
   eta: Eta;
+
+  @ApiProperty({ type: () => [Unit] })
+  @ManyToMany(() => Unit)
+  @JoinTable({
+    name: 'article_units',
+    joinColumn: { name: 'articleId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'unitId', referencedColumnName: 'id' },
+  })
+  units: Unit[];
 }

@@ -234,10 +234,9 @@ const sampleTimeEntry = {
   employeeId: EMPLOYEE_ID,
   articleId: ARTICLE_ID,
   createdByUserId: USER_ID,
+  date: '2026-05-16',
   startAt: '2026-05-16T08:00:00.000Z',
   endAt: '2026-05-16T10:00:00.000Z',
-  durationMinutes: 120,
-  employeeMinutes: 120,
   personalKm: 0,
   personalAmount: 0,
   halfDay: false,
@@ -667,6 +666,7 @@ describe('API routes (e2e)', () => {
     const body = {
       employeeId: EMPLOYEE_ID,
       articleId: ARTICLE_ID,
+      date: '2026-05-16',
       startAt: '2026-05-16T08:00:00.000Z',
       endAt: '2026-05-16T10:00:00.000Z',
     };

@@ -31,11 +31,10 @@ import { TimeEntryMaterial } from './entities/time-entry-material.entity';
 import { TimeEntryQuantity } from './entities/time-entry-quantity.entity';
 import { TimeEntry } from './entities/time-entry.entity';
 
-type TimeRange = {
-  startAt: Date;
-  endAt: Date;
-  durationMinutes: number;
-  employeeMinutes: number;
+type EntryDates = {
+  date: string;
+  startAt: Date | null;
+  endAt: Date | null;
 };
 
 type WeekBucket = {
@@ -82,8 +81,13 @@ export class TimeEntriesService {
     currentUser: AuthUser,
     dto: CreateTimeEntryDto,
   ): Promise<TimeEntry> {
-    const range = this.buildRange(dto);
+    const dates = this.buildDates(dto);
     await this.ensureReferences(currentEta.etaId, dto);
+    await this.ensureQuantities(
+      currentEta.etaId,
+      dto.articleId,
+      dto.quantities ?? [],
+    );
     const employee = await this.ensureScopedEntity(
       this.employeesRepository,
       currentEta.etaId,
@@ -91,12 +95,14 @@ export class TimeEntriesService {
       'Employee',
     );
     this.assertCanUseEmployee(currentEta, currentUser, employee);
-    await this.assertNoOverlap(
-      currentEta.etaId,
-      dto.employeeId,
-      range.startAt,
-      range.endAt,
-    );
+    if (dates.startAt && dates.endAt) {
+      await this.assertNoOverlap(
+        currentEta.etaId,
+        dto.employeeId,
+        dates.startAt,
+        dates.endAt,
+      );
+    }
 
     const saved = await this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(TimeEntry);
@@ -107,10 +113,9 @@ export class TimeEntriesService {
           employeeId: dto.employeeId,
           articleId: dto.articleId,
           createdByUserId: currentUser.userId,
-          startAt: range.startAt,
-          endAt: range.endAt,
-          durationMinutes: range.durationMinutes,
-          employeeMinutes: range.employeeMinutes,
+          date: dates.date,
+          startAt: dates.startAt,
+          endAt: dates.endAt,
           comment: dto.comment ?? null,
           personalKm: dto.personalKm ?? 0,
           personalAmount: dto.personalAmount ?? 0,
@@ -139,7 +144,10 @@ export class TimeEntriesService {
         employee: true,
         article: true,
         materials: { material: true },
-        quantities: { tariff: { article: true, unit: true, category: true } },
+        quantities: {
+          unit: true,
+          tariff: { article: true, unit: true, category: true },
+        },
         consumables: {
           material: true,
           article: true,
@@ -169,8 +177,9 @@ export class TimeEntriesService {
       .leftJoinAndSelect('entry.materials', 'entryMaterial')
       .leftJoinAndSelect('entryMaterial.material', 'material')
       .leftJoinAndSelect('entry.quantities', 'quantity')
+      .leftJoinAndSelect('quantity.unit', 'quantityUnit')
       .leftJoinAndSelect('quantity.tariff', 'quantityTariff')
-      .leftJoinAndSelect('quantityTariff.unit', 'quantityUnit')
+      .leftJoinAndSelect('quantityTariff.unit', 'quantityTariffUnit')
       .leftJoinAndSelect('quantityTariff.category', 'quantityCategory')
       .leftJoinAndSelect('entry.consumables', 'consumable')
       .leftJoinAndSelect('consumable.material', 'consumableMaterial')
@@ -179,14 +188,14 @@ export class TimeEntriesService {
       .where('entry.etaId = :etaId', { etaId: currentEta.etaId });
 
     if (dto.start) {
-      qb.andWhere('entry.startAt >= :start', {
-        start: this.parseDate(dto.start, 'start'),
+      qb.andWhere('entry.date >= :start', {
+        start: this.toDateOnly(this.parseDate(dto.start, 'start')),
       });
     }
 
     if (dto.end) {
-      qb.andWhere('entry.endAt <= :end', {
-        end: this.parseDate(dto.end, 'end'),
+      qb.andWhere('entry.date <= :end', {
+        end: this.toDateOnly(this.parseDate(dto.end, 'end')),
       });
     }
 
@@ -223,7 +232,7 @@ export class TimeEntriesService {
     await this.applyReadScope(qb, currentEta, currentUser);
 
     return qb
-      .orderBy('entry.startAt', 'DESC')
+      .orderBy('entry.date', 'DESC')
       .addOrderBy('entry.id', 'DESC')
       .getMany();
   }
@@ -238,14 +247,23 @@ export class TimeEntriesService {
     this.assertCanMutateTimeEntry(currentEta, existing);
 
     const employeeId = dto.employeeId ?? existing.employeeId;
-    const range = this.buildRange(dto, existing);
+    const articleId = dto.articleId ?? existing.articleId;
+    const dates = this.buildDates(dto, existing);
     await this.ensureReferences(currentEta.etaId, {
       ...dto,
       employeeId,
-      articleId: dto.articleId ?? existing.articleId,
-      startAt: range.startAt.toISOString(),
-      endAt: range.endAt.toISOString(),
+      articleId,
     });
+    await this.ensureQuantities(
+      currentEta.etaId,
+      articleId,
+      dto.quantities ??
+        (existing.quantities ?? []).map((quantity) => ({
+          unitId: quantity.unitId,
+          tariffId: quantity.tariffId ?? undefined,
+          quantity: quantity.quantity,
+        })),
+    );
     const employee = await this.ensureScopedEntity(
       this.employeesRepository,
       currentEta.etaId,
@@ -253,13 +271,15 @@ export class TimeEntriesService {
       'Employee',
     );
     this.assertCanUseEmployee(currentEta, currentUser, employee);
-    await this.assertNoOverlap(
-      currentEta.etaId,
-      employeeId,
-      range.startAt,
-      range.endAt,
-      id,
-    );
+    if (dates.startAt && dates.endAt) {
+      await this.assertNoOverlap(
+        currentEta.etaId,
+        employeeId,
+        dates.startAt,
+        dates.endAt,
+        id,
+      );
+    }
 
     await this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(TimeEntry);
@@ -270,11 +290,10 @@ export class TimeEntriesService {
             ? existing.clientId
             : (dto.clientId ?? null),
         employeeId,
-        articleId: dto.articleId ?? existing.articleId,
-        startAt: range.startAt,
-        endAt: range.endAt,
-        durationMinutes: range.durationMinutes,
-        employeeMinutes: range.employeeMinutes,
+        articleId,
+        date: dates.date,
+        startAt: dates.startAt,
+        endAt: dates.endAt,
         comment: dto.comment === undefined ? existing.comment : dto.comment,
         personalKm: dto.personalKm ?? existing.personalKm,
         personalAmount: dto.personalAmount ?? existing.personalAmount,
@@ -303,10 +322,9 @@ export class TimeEntriesService {
     currentUser: AuthUser,
     query: TimeEntryOverlapsQueryDto,
   ): Promise<TimeEntry[]> {
-    const range = this.buildRange({
-      startAt: query.start,
-      endAt: query.end,
-    });
+    const startAt = this.parseDate(query.start, 'start');
+    const endAt = this.parseDate(query.end, 'end');
+    this.assertDateRange(startAt, endAt);
     const employee = await this.ensureScopedEntity(
       this.employeesRepository,
       currentEta.etaId,
@@ -318,8 +336,8 @@ export class TimeEntriesService {
     return this.findOverlaps(
       currentEta.etaId,
       query.employeeId,
-      range.startAt,
-      range.endAt,
+      startAt,
+      endAt,
       query.excludeTimeEntryId,
     );
   }
@@ -378,11 +396,11 @@ export class TimeEntriesService {
         continue;
       }
 
-      const { year, week } = this.getIsoWeek(entry.startAt);
+      const { year, week } = this.getIsoWeek(this.parseDateOnly(entry.date));
       const key = `${year}-${week}`;
       const bucket = buckets.get(key);
       if (bucket) {
-        bucket.totalMinutes += entry.employeeMinutes;
+        bucket.totalMinutes += this.entryHourMinutes(entry);
       }
     }
 
@@ -408,7 +426,8 @@ export class TimeEntriesService {
     const buckets = this.buildMonthBuckets(startAt, endAt);
 
     for (const entry of entries) {
-      const key = `${entry.startAt.getUTCMonth() + 1}-${entry.startAt.getUTCFullYear()}`;
+      const entryDate = this.parseDateOnly(entry.date);
+      const key = `${entryDate.getUTCMonth() + 1}-${entryDate.getUTCFullYear()}`;
       const bucket = buckets.get(key);
       if (!bucket) {
         continue;
@@ -419,7 +438,7 @@ export class TimeEntriesService {
       this.addTimeToMonthBucket(
         bucket,
         entry.article.type,
-        entry.employeeMinutes,
+        this.entryHourMinutes(entry),
       );
     }
 
@@ -431,8 +450,6 @@ export class TimeEntriesService {
     dto: Partial<CreateTimeEntryDto> & {
       employeeId: string;
       articleId: string;
-      startAt: string;
-      endAt: string;
     },
   ): Promise<void> {
     if (dto.clientId) {
@@ -465,10 +482,6 @@ export class TimeEntriesService {
             id,
             'Material',
           ),
-      ),
-      ...this.unique((dto.quantities ?? []).map((item) => item.tariffId)).map(
-        (id) =>
-          this.ensureScopedEntity(this.tariffsRepository, etaId, id, 'Tariff'),
       ),
       ...this.unique(
         (dto.consumables ?? [])
@@ -520,55 +533,81 @@ export class TimeEntriesService {
     return entity;
   }
 
-  private buildRange(
-    dto: Partial<
-      Pick<
-        CreateTimeEntryDto,
-        'startAt' | 'endAt' | 'durationMinutes' | 'employeeMinutes'
-      >
-    >,
+  private async ensureQuantities(
+    etaId: string,
+    articleId: string,
+    quantities: CreateTimeEntryQuantityDto[],
+  ): Promise<void> {
+    if (!quantities.length) {
+      return;
+    }
+
+    const article = await this.articlesRepository.findOne({
+      where: { id: articleId, etaId },
+      relations: { units: true },
+    });
+
+    if (!article) {
+      throw new NotFoundException('Article not found.');
+    }
+
+    const allowedUnitIds = new Set(article.units.map((unit) => unit.id));
+
+    for (const item of quantities) {
+      if (!allowedUnitIds.has(item.unitId)) {
+        throw new BadRequestException(
+          'A quantity unit is not available for this article.',
+        );
+      }
+
+      if (item.tariffId) {
+        const tariff = await this.tariffsRepository.findOne({
+          where: { id: item.tariffId, etaId },
+        });
+
+        if (!tariff) {
+          throw new NotFoundException('Tariff not found.');
+        }
+
+        if (tariff.articleId !== articleId || tariff.unitId !== item.unitId) {
+          throw new BadRequestException(
+            'Tariff does not match the article and unit of the quantity.',
+          );
+        }
+      }
+    }
+  }
+
+  private buildDates(
+    dto: Partial<Pick<CreateTimeEntryDto, 'date' | 'startAt' | 'endAt'>>,
     existing?: TimeEntry,
-  ): TimeRange {
-    const startAt = dto.startAt
-      ? this.parseDate(dto.startAt, 'startAt')
-      : existing?.startAt;
-    const endAt = dto.endAt
-      ? this.parseDate(dto.endAt, 'endAt')
-      : existing?.endAt;
+  ): EntryDates {
+    const date = dto.date ?? existing?.date;
 
-    if (!startAt || !endAt) {
-      throw new BadRequestException('startAt and endAt are required.');
+    if (!date || Number.isNaN(new Date(date).getTime())) {
+      throw new BadRequestException(
+        'date is required and must be a valid date.',
+      );
     }
 
-    this.assertDateRange(startAt, endAt);
+    const startAt =
+      dto.startAt !== undefined
+        ? dto.startAt
+          ? this.parseDate(dto.startAt, 'startAt')
+          : null
+        : (existing?.startAt ?? null);
+    const endAt =
+      dto.endAt !== undefined
+        ? dto.endAt
+          ? this.parseDate(dto.endAt, 'endAt')
+          : null
+        : (existing?.endAt ?? null);
 
-    const datesChanged = Boolean(dto.startAt || dto.endAt);
-    const computedDuration = Math.round(
-      (endAt.getTime() - startAt.getTime()) / (60 * 1000),
-    );
-    const durationMinutes =
-      dto.durationMinutes ??
-      (datesChanged ? computedDuration : existing?.durationMinutes);
-    const employeeMinutes =
-      dto.employeeMinutes ??
-      (dto.durationMinutes || datesChanged
-        ? durationMinutes
-        : existing?.employeeMinutes);
-
-    if (
-      !durationMinutes ||
-      durationMinutes <= 0 ||
-      employeeMinutes === undefined
-    ) {
-      throw new BadRequestException('Duration must be greater than zero.');
+    if (startAt && endAt && endAt.getTime() < startAt.getTime()) {
+      throw new BadRequestException('endAt must be after or equal to startAt.');
     }
 
-    return {
-      startAt,
-      endAt,
-      durationMinutes,
-      employeeMinutes,
-    };
+    return { date, startAt, endAt };
   }
 
   private parseDate(value: string, fieldName: string): Date {
@@ -701,7 +740,8 @@ export class TimeEntriesService {
       quantities.map((item) =>
         repository.create({
           timeEntryId,
-          tariffId: item.tariffId,
+          unitId: item.unitId,
+          tariffId: item.tariffId ?? null,
           quantity: item.quantity,
         }),
       ),
@@ -828,9 +868,13 @@ export class TimeEntriesService {
       .createQueryBuilder('entry')
       .leftJoinAndSelect('entry.employee', 'employee')
       .leftJoinAndSelect('entry.article', 'article')
+      .leftJoinAndSelect('entry.quantities', 'quantity')
+      .leftJoinAndSelect('quantity.unit', 'quantityUnit')
       .where('entry.etaId = :etaId', { etaId: currentEta.etaId })
-      .andWhere('entry.startAt >= :startAt', { startAt })
-      .andWhere('entry.endAt <= :endAt', { endAt });
+      .andWhere('entry.date >= :startDate', {
+        startDate: this.toDateOnly(startAt),
+      })
+      .andWhere('entry.date <= :endDate', { endDate: this.toDateOnly(endAt) });
 
     if (dto.employeeIds?.length) {
       qb.andWhere('entry.employeeId IN (:...employeeIds)', {
@@ -950,6 +994,24 @@ export class TimeEntriesService {
     return `${this.pad(date.getUTCDate())}/${this.pad(
       date.getUTCMonth() + 1,
     )}/${date.getUTCFullYear()}`;
+  }
+
+  private toDateOnly(date: Date): string {
+    return `${date.getUTCFullYear()}-${this.pad(
+      date.getUTCMonth() + 1,
+    )}-${this.pad(date.getUTCDate())}`;
+  }
+
+  private parseDateOnly(value: string): Date {
+    return new Date(`${value}T00:00:00.000Z`);
+  }
+
+  private entryHourMinutes(entry: TimeEntry): number {
+    return Math.round(
+      (entry.quantities ?? [])
+        .filter((quantity) => quantity.unit?.isHourUnit)
+        .reduce((total, quantity) => total + quantity.quantity * 60, 0),
+    );
   }
 
   private pad(value: number): string {
