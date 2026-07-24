@@ -12,7 +12,9 @@ Internet
    ▼
 nginx (hôte)                     ← /etc/nginx/sites-available/etamanager.dockbarge.cloud
    ├─ /            → frontend   127.0.0.1:8099  (conteneur, Express + Angular)
-   └─ /api/*       → backend    127.0.0.1:3000  (conteneur, NestJS)
+   ├─ /api/*       → backend    127.0.0.1:3000  (conteneur, NestJS)
+   └─ /eta-planning.apk → /opt/my_eta_planning/mobile/eta-planning.apk
+                           (APK Android release signé, téléchargement direct)
                          │
                          ▼  réseau docker interne « my_eta_planning »
                       PostgreSQL   (conteneur, non exposé à l'hôte)
@@ -37,6 +39,7 @@ nginx (hôte)                     ← /etc/nginx/sites-available/etamanager.dock
 | `deploy/nginx-etamanager.dockbarge.cloud.conf` | vhost du domaine, HTTPS inclus (copie de référence de la conf live) |
 | `deploy/nginx-my_eta_planning.conf` | vhost générique par IP (copie de référence) |
 | `/opt/my_eta_planning/backend/.env.production` | secrets de production (sur le serveur uniquement, jamais versionné) |
+| `/opt/my_eta_planning/mobile/` | APK Android release signé, servi sur `/eta-planning.apk` (build : repo `eta_mobile`, voir son `PLAY_STORE.md`) |
 
 Sur le serveur, tout est installé sous `/opt/my_eta_planning/` :
 `backend/`, `frontend/`, `deploy.sh`, `.seeded` (marqueur de seed).
