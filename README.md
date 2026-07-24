@@ -178,3 +178,9 @@ Pour selectionner une ETA differente de l'ETA active du token, envoyer :
 ```http
 x-current-eta-id: <eta-id>
 ```
+
+## Deploiement
+
+Le systeme de deploiement en production (docker compose + nginx) est decrit
+dans [`deploy/DEPLOYMENT.md`](deploy/DEPLOYMENT.md). Pour mettre a jour
+l'application sur le serveur : `/opt/my_eta_planning/deploy.sh`.

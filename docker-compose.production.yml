@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: my_eta_planning_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - eta-postgres-data:/var/lib/postgresql/data
+    networks:
+      - my_eta_planning
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: my_eta_planning_backend:latest
+    container_name: my_eta_planning_api
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - my_eta_planning
+
+  seed:
+    image: my_eta_planning_backend:latest
+    container_name: my_eta_planning_seed
+    profiles:
+      - seed
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+    command: ['node', 'dist/database/seed.js']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - my_eta_planning
+
+networks:
+  my_eta_planning:
+    external: true
+    name: my_eta_planning
+
+volumes:
+  eta-postgres-data:
+    name: my_eta_planning_postgres_data
