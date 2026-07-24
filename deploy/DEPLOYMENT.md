@@ -1,15 +1,16 @@
 # Déploiement de my_eta_planning
 
 Application complète : frontend Angular + backend NestJS + PostgreSQL,
-servie sur l'IP publique du serveur (`http://194.164.76.69`).
+servie en HTTPS sur **https://etamanager.dockbarge.cloud**
+(l'accès direct par IP `http://194.164.76.69` reste actif en parallèle).
 
 ## Architecture
 
 ```
 Internet
-   │  http://194.164.76.69  (port 80, seul port public)
+   │  https://etamanager.dockbarge.cloud  (443 ; 80 redirige vers 443)
    ▼
-nginx (hôte)                     ← /etc/nginx/sites-enabled/default
+nginx (hôte)                     ← /etc/nginx/sites-available/etamanager.dockbarge.cloud
    ├─ /            → frontend   127.0.0.1:8099  (conteneur, Express + Angular)
    └─ /api/*       → backend    127.0.0.1:3000  (conteneur, NestJS)
                          │
@@ -19,6 +20,8 @@ nginx (hôte)                     ← /etc/nginx/sites-enabled/default
 
 - Le frontend sert l'application Angular et reçoit `/api/*` via nginx.
 - Le backend et PostgreSQL ne sont jamais exposés publiquement.
+- HTTPS : certificat Let's Encrypt (certbot), renouvelé automatiquement
+  par le timer systemd `certbot.timer`.
 - Les conteneurs ont `restart: unless-stopped` ; docker et nginx sont
   activés au boot : l'application survit aux redémarrages du serveur.
 - Les données PostgreSQL sont dans le volume docker
@@ -31,7 +34,8 @@ nginx (hôte)                     ← /etc/nginx/sites-enabled/default
 | `deploy/deploy.sh` | Déploiement complet : sync du code, build, redémarrage, seed, health checks |
 | `docker-compose.production.yml` (backend) | postgres + api + profil `seed` |
 | `docker-compose.production.yml` (frontend) | frontend |
-| `deploy/nginx-my_eta_planning.conf` | reverse proxy (copie de référence de la conf live) |
+| `deploy/nginx-etamanager.dockbarge.cloud.conf` | vhost du domaine, HTTPS inclus (copie de référence de la conf live) |
+| `deploy/nginx-my_eta_planning.conf` | vhost générique par IP (copie de référence) |
 | `/opt/my_eta_planning/backend/.env.production` | secrets de production (sur le serveur uniquement, jamais versionné) |
 
 Sur le serveur, tout est installé sous `/opt/my_eta_planning/` :
@@ -50,8 +54,24 @@ Le script synchronise le code vers `/opt`, rebuild les images, redémarre
 les conteneurs, applique les migrations TypeORM (au démarrage de l'api) et
 vérifie que tout répond. Il est idempotent et peut être relancé sans risque.
 
-Vérifier ensuite : `curl -I http://194.164.76.69` et
-`curl http://194.164.76.69/api/health`.
+Vérifier ensuite : `curl -I https://etamanager.dockbarge.cloud` et
+`curl https://etamanager.dockbarge.cloud/api/health`.
+
+## Domaine et HTTPS
+
+La zone DNS de `dockbarge.cloud` est gérée chez Hostinger. Mise en place :
+
+1. DNS : enregistrement **A** `etamanager` → `194.164.76.69`
+2. Vhost nginx : `deploy/nginx-etamanager.dockbarge.cloud.conf` installé
+   dans `/etc/nginx/sites-available/` + lien dans `sites-enabled/`
+3. Certificat et redirection HTTP → HTTPS :
+
+```bash
+certbot --nginx -d etamanager.dockbarge.cloud --redirect
+```
+
+Le renouvellement est automatique (`certbot.timer`, certificat valable
+90 jours, renouvelé ~30 jours avant expiration).
 
 ## Installation initiale d'un nouveau serveur
 
@@ -79,6 +99,8 @@ nginx -t && systemctl reload nginx
 
 # 5. Premier déploiement (inclut le seed initial de la base)
 /opt/my_eta_planning/deploy.sh
+
+# 6. (Optionnel) domaine + HTTPS : voir la section « Domaine et HTTPS »
 ```
 
 Le seed crée le compte administrateur initial ; conserver ses identifiants
@@ -92,6 +114,7 @@ docker logs -f my_eta_planning_api                 # logs backend
 docker logs -f my_eta_planning_frontend            # logs frontend
 docker exec my_eta_planning_postgres \
   pg_dump -U eta eta_planning > backup.sql         # sauvegarde BDD
+certbot certificates                               # état du certificat HTTPS
 ```
 
 Rollback : `git checkout <commit>` dans le(s) repo(s) concerné(s), puis
@@ -99,7 +122,5 @@ relancer `/opt/my_eta_planning/deploy.sh`.
 
 ## Limites connues et évolutions possibles
 
-- **HTTP uniquement.** HTTPS via Let's Encrypt exige un nom de domaine
-  (pas de certificat sur une IP nue). Avec un domaine : `certbot --nginx`.
 - Le build se fait sur le serveur (simple, aucun registry). Si le serveur
   manque de RAM/CPU, builder ailleurs et pousser les images sur un registry.
