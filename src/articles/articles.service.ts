@@ -5,6 +5,7 @@ import { Unit } from '../units/unit.entity';
 import { Article } from './article.entity';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
+import { ArticleType } from './enums/article-type.enum';
 
 @Injectable()
 export class ArticlesService {
@@ -15,9 +16,9 @@ export class ArticlesService {
     private readonly unitsRepository: Repository<Unit>,
   ) {}
 
-  findAll(etaId: string): Promise<Article[]> {
+  findAll(etaId: string, types?: ArticleType[]): Promise<Article[]> {
     return this.articlesRepository.find({
-      where: { etaId },
+      where: { etaId, ...(types?.length ? { type: In(types) } : {}) },
       relations: { units: true },
       order: { code: 'ASC' },
     });

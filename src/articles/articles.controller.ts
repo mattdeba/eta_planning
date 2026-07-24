@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -30,6 +31,7 @@ import {
 import { Article } from './article.entity';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
+import { ListArticlesQueryDto } from './dto/list-articles-query.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 
 @ApiTags('articles')
@@ -43,8 +45,11 @@ export class ArticlesController {
   @ApiOperation({ summary: 'List articles for current ETA.' })
   @ApiOkResponse({ type: [Article] })
   @ApiRouteErrors({ auth: true })
-  findAll(@CurrentEta() currentEta: EtaContext): Promise<Article[]> {
-    return this.articlesService.findAll(currentEta.etaId);
+  findAll(
+    @CurrentEta() currentEta: EtaContext,
+    @Query() query: ListArticlesQueryDto,
+  ): Promise<Article[]> {
+    return this.articlesService.findAll(currentEta.etaId, query.types);
   }
 
   @Post()

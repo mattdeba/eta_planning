@@ -507,6 +507,8 @@ describe('API routes (e2e)', () => {
 
       if (name === 'employees') {
         expect(service.findAll).toHaveBeenCalledWith(currentEta, currentUser);
+      } else if (name === 'articles') {
+        expect(service.findAll).toHaveBeenCalledWith(ETA_ID, undefined);
       } else {
         expect(service.findAll).toHaveBeenCalledWith(ETA_ID);
       }
@@ -533,6 +535,25 @@ describe('API routes (e2e)', () => {
         updateBody,
       );
     });
+  });
+
+  it('GET /api/articles?types filtre par types', async () => {
+    await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ types: 'billable,consumable' })
+      .expect(200);
+
+    expect(articlesService.findAll).toHaveBeenCalledWith(ETA_ID, [
+      ArticleType.BILLABLE,
+      ArticleType.CONSUMABLE,
+    ]);
+  });
+
+  it('GET /api/articles?types refuse un type inconnu', async () => {
+    await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ types: 'unknown' })
+      .expect(400);
   });
 
   it('rejects invalid client payloads', async () => {
